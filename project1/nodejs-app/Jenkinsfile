@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "hemajairam/nodejs-app"
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/hemajairam/nodejs-app.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([string(credentialsId: 'dockerhub-token', variable: 'DOCKER_HUB_PASS')]) {
+                    sh 'echo $DOCKER_HUB_PASS | docker login -u hemajairam --password-stdin'
+                    sh 'docker push $DOCKER_IMAGE'
+                }
+            }
+        }
+
+        stage('Deploy to Server') {
+            steps {
+                sh '''
+                docker stop nodeapp || true
+                docker rm nodeapp || true
+                docker run -d -p 8080:8080 --name nodeapp $DOCKER_IMAGE
+                '''
+            }
+        }
+    }
+}
+
